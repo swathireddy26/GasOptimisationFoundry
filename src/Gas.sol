@@ -8,7 +8,7 @@ contract Constants {
 }
 
 contract GasContract is Constants {
-    uint256 public totalSupply = 0; // cannot be updated
+    uint256 public immutable totalSupply = 0; // cannot be updated
     uint256 public paymentCounter = 0;
     mapping(address => uint256) public balances;
     uint256 public tradePercent = 12;
@@ -113,12 +113,9 @@ contract GasContract is Constants {
                 administrators[ii] = _admins[ii];
                 if (_admins[ii] == contractOwner) {
                     balances[contractOwner] = totalSupply;
+                    emit supplyChanged(_admins[ii], totalSupply);
                 } else {
                     balances[_admins[ii]] = 0;
-                }
-                if (_admins[ii] == contractOwner) {
-                    emit supplyChanged(_admins[ii], totalSupply);
-                } else if (_admins[ii] != contractOwner) {
                     emit supplyChanged(_admins[ii], 0);
                 }
             }
