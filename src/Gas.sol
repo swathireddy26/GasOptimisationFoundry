@@ -8,16 +8,8 @@ contract Constants {
 }
 
 contract GasContract is Constants {
-    uint256 public immutable totalSupply = 0; // cannot be updated
-    uint256 public paymentCounter = 0;
-    mapping(address => uint256) public balances;
-    uint256 public tradePercent = 12;
-    address public contractOwner;
-    uint256 public tradeMode = 0;
-    mapping(address => Payment[]) public payments;
-    mapping(address => uint256) public whitelist;
-    address[5] public administrators;
-    bool public isReady = false;
+    /// Type Declarations
+
     enum PaymentType {
         Unknown,
         BasicPayment,
@@ -25,9 +17,6 @@ contract GasContract is Constants {
         Dividend,
         GroupPayment
     }
-    PaymentType constant defaultPayment = PaymentType.Unknown;
-
-    History[] public paymentHistory; // when a payment was updated
 
     struct Payment {
         PaymentType paymentType;
@@ -44,8 +33,6 @@ contract GasContract is Constants {
         address updatedBy;
         uint256 blockNumber;
     }
-    uint256 wasLastOdd = 1;
-    mapping(address => uint256) public isOddWhitelistUser;
 
     struct ImportantStruct {
         uint256 amount;
@@ -55,9 +42,42 @@ contract GasContract is Constants {
         bool paymentStatus;
         address sender;
     }
+
+    /// State variables
+
+    uint256 public immutable totalSupply = 0; // cannot be updated
+    uint256 public paymentCounter = 0;
+    mapping(address => uint256) public balances;
+    uint256 public tradePercent = 12;
+    address public contractOwner;
+    uint256 public tradeMode = 0;
+    mapping(address => Payment[]) public payments;
+    mapping(address => uint256) public whitelist;
+    address[5] public administrators;
+    bool public isReady = false;
     mapping(address => ImportantStruct) public whiteListStruct;
+    uint256 wasLastOdd = 1;
+    mapping(address => uint256) public isOddWhitelistUser;
+    PaymentType constant defaultPayment = PaymentType.Unknown;
+
+    History[] public paymentHistory; // when a payment was updated
+
+    /// Events
 
     event AddedToWhitelist(address userAddress, uint256 tier);
+    event supplyChanged(address indexed, uint256 indexed);
+    event Transfer(address recipient, uint256 amount);
+    event PaymentUpdated(
+        address admin,
+        uint256 ID,
+        uint256 amount,
+        string recipient
+    );
+    event WhiteListTransfer(address indexed);
+
+    /// Errors
+
+    /// Modfiers
 
     modifier onlyAdminOrOwner() {
         if (checkForAdmin(msg.sender)) {
@@ -80,38 +100,42 @@ contract GasContract is Constants {
         _;
     }
 
-    event supplyChanged(address indexed, uint256 indexed);
-    event Transfer(address recipient, uint256 amount);
-    event PaymentUpdated(
-        address admin,
-        uint256 ID,
-        uint256 amount,
-        string recipient
-    );
-    event WhiteListTransfer(address indexed);
+    /// Constructor
 
     constructor(address[] memory _admins, uint256 _totalSupply) {
         contractOwner = msg.sender;
         totalSupply = _totalSupply;
 
-        for (uint256 ii = 0; ii < administrators.length; ii++) {
-            if (_admins[ii] != address(0)) {
-                administrators[ii] = _admins[ii];
-                if (_admins[ii] == contractOwner) {
+        for (uint256 i = 0; i < administrators.length; i++) {
+            if (_admins[i] != address(0)) {
+                administrators[i] = _admins[i];
+                if (_admins[i] == contractOwner) {
                     balances[contractOwner] = totalSupply;
-                    emit supplyChanged(_admins[ii], totalSupply);
+                    emit supplyChanged(_admins[i], totalSupply);
                 } else {
-                    balances[_admins[ii]] = 0;
-                    emit supplyChanged(_admins[ii], 0);
+                    balances[_admins[i]] = 0;
+                    emit supplyChanged(_admins[i], 0);
                 }
             }
         }
     }
 
+    /// Receive
+
+    receive() external payable {
+        payable(msg.sender).transfer(msg.value);
+    }
+
+    /// Fallback
+
+    fallback() external payable {
+        payable(msg.sender).transfer(msg.value);
+    }
+
     function checkForAdmin(address _user) public view returns (bool admin_) {
         bool admin = false;
-        for (uint256 ii = 0; ii < administrators.length; ii++) {
-            if (administrators[ii] == _user) {
+        for (uint256 i = 0; i < administrators.length; i++) {
+            if (administrators[i] == _user) {
                 admin = true;
             }
         }
@@ -139,11 +163,8 @@ contract GasContract is Constants {
         history.lastUpdate = block.timestamp;
         history.updatedBy = _updateAddress;
         paymentHistory.push(history);
-        bool[] memory status = new bool[](tradePercent);
-        for (uint256 i = 0; i < tradePercent; i++) {
-            status[i] = true;
-        }
-        return ((status[0] == true), _tradeMode);
+
+        return (true, _tradeMode);
     }
 
     function transfer(
@@ -172,11 +193,8 @@ contract GasContract is Constants {
         payment.recipientName = _name;
         payment.paymentID = ++paymentCounter;
         payments[senderOfTx].push(payment);
-        bool[] memory status = new bool[](tradePercent);
-        for (uint256 i = 0; i < tradePercent; i++) {
-            status[i] = true;
-        }
-        return (status[0] == true);
+
+        return true;
     }
 
     function updatePayment(
@@ -194,20 +212,21 @@ contract GasContract is Constants {
 
         address senderOfTx = msg.sender;
 
-        for (uint256 ii = 0; ii < payments[_user].length; ii++) {
-            if (payments[_user][ii].paymentID == _ID) {
-                payments[_user][ii].adminUpdated = true;
-                payments[_user][ii].admin = _user;
-                payments[_user][ii].paymentType = _type;
-                payments[_user][ii].amount = _amount;
+        for (uint256 i = 0; i < payments[_user].length; i++) {
+            if (payments[_user][i].paymentID == _ID) {
+                payments[_user][i].adminUpdated = true;
+                payments[_user][i].admin = _user;
+                payments[_user][i].paymentType = _type;
+                payments[_user][i].amount = _amount;
                 bool tradingMode = getTradingMode();
                 addHistory(_user, tradingMode);
                 emit PaymentUpdated(
                     senderOfTx,
                     _ID,
                     _amount,
-                    payments[_user][ii].recipientName
+                    payments[_user][i].recipientName
                 );
+                break;
             }
         }
     }
@@ -217,27 +236,14 @@ contract GasContract is Constants {
         uint256 _tier
     ) public onlyAdminOrOwner {
         require(_tier < 255, "Gas Contract addToWhitelist: Invalid tier");
-        whitelist[_userAddrs] = _tier;
-        if (_tier > 3) {
-            whitelist[_userAddrs] -= _tier;
+        if (_tier >= 3) {
             whitelist[_userAddrs] = 3;
-        } else if (_tier == 1) {
-            whitelist[_userAddrs] -= _tier;
-            whitelist[_userAddrs] = 1;
-        } else if (_tier > 0 && _tier < 3) {
-            whitelist[_userAddrs] -= _tier;
-            whitelist[_userAddrs] = 2;
-        }
-        uint256 wasLastAddedOdd = wasLastOdd;
-        if (wasLastAddedOdd == 1) {
-            wasLastOdd = 0;
-            isOddWhitelistUser[_userAddrs] = wasLastAddedOdd;
-        } else if (wasLastAddedOdd == 0) {
-            wasLastOdd = 1;
-            isOddWhitelistUser[_userAddrs] = wasLastAddedOdd;
         } else {
-            revert("Contract hacked, imposible, call help");
+            whitelist[_userAddrs] = _tier;
         }
+
+        wasLastOdd = 1 - wasLastOdd;
+        isOddWhitelistUser[_userAddrs] = wasLastOdd;
         emit AddedToWhitelist(_userAddrs, _tier);
     }
 
@@ -252,17 +258,14 @@ contract GasContract is Constants {
             0,
             0,
             true,
-            msg.sender
+            senderOfTx
         );
 
         require(
-            balances[senderOfTx] >= _amount,
+            balances[senderOfTx] >= _amount && _amount > 3,
             "Gas Contract whiteTransfers: Insufficient Balance"
         );
-        require(
-            _amount > 3,
-            "Gas Contract whiteTransfers: - amount should be greater than 3"
-        );
+
         balances[senderOfTx] -= _amount;
         balances[_recipient] += _amount;
         balances[senderOfTx] += whitelist[senderOfTx];
@@ -278,13 +281,5 @@ contract GasContract is Constants {
             whiteListStruct[sender].paymentStatus,
             whiteListStruct[sender].amount
         );
-    }
-
-    receive() external payable {
-        payable(msg.sender).transfer(msg.value);
-    }
-
-    fallback() external payable {
-        payable(msg.sender).transfer(msg.value);
     }
 }
