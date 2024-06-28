@@ -1,13 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
-contract Constants {
-    bool public constant tradeFlag = true;
-    bool public constant basicFlag = false;
-    bool public constant dividendFlag = true;
-}
-
-contract GasContract is Constants {
+contract GasContract {
     /// Type Declarations
 
     enum PaymentType {
@@ -30,8 +24,8 @@ contract GasContract is Constants {
 
     struct History {
         uint256 lastUpdate;
-        address updatedBy;
         uint256 blockNumber;
+        address updatedBy;
     }
 
     struct ImportantStruct {
@@ -48,19 +42,11 @@ contract GasContract is Constants {
     uint256 public immutable totalSupply = 0; // cannot be updated
     uint256 public paymentCounter = 0;
     mapping(address => uint256) public balances;
-    uint256 public tradePercent = 12;
     address public contractOwner;
-    uint256 public tradeMode = 0;
     mapping(address => Payment[]) public payments;
     mapping(address => uint256) public whitelist;
     address[5] public administrators;
-    bool public isReady = false;
     mapping(address => ImportantStruct) public whiteListStruct;
-    uint256 wasLastOdd = 1;
-    mapping(address => uint256) public isOddWhitelistUser;
-    PaymentType constant defaultPayment = PaymentType.Unknown;
-
-    History[] public paymentHistory; // when a payment was updated
 
     /// Events
 
@@ -120,18 +106,6 @@ contract GasContract is Constants {
         }
     }
 
-    /// Receive
-
-    receive() external payable {
-        payable(msg.sender).transfer(msg.value);
-    }
-
-    /// Fallback
-
-    fallback() external payable {
-        payable(msg.sender).transfer(msg.value);
-    }
-
     function checkForAdmin(address _user) public view returns (bool admin_) {
         bool admin = false;
         for (uint256 i = 0; i < administrators.length; i++) {
@@ -146,89 +120,34 @@ contract GasContract is Constants {
         return balances[_user];
     }
 
-    function getTradingMode() public pure returns (bool mode_) {
-        if (tradeFlag == true || dividendFlag == true) {
-            return true;
-        } else {
-            return false;
-        }
-    }
-
-    function addHistory(
-        address _updateAddress,
-        bool _tradeMode
-    ) public returns (bool status_, bool tradeMode_) {
-        History memory history;
-        history.blockNumber = block.number;
-        history.lastUpdate = block.timestamp;
-        history.updatedBy = _updateAddress;
-        paymentHistory.push(history);
-
-        return (true, _tradeMode);
-    }
-
     function transfer(
         address _recipient,
         uint256 _amount,
         string calldata _name
     ) public returns (bool status_) {
-        address senderOfTx = msg.sender;
         require(
-            balances[senderOfTx] >= _amount,
+            balances[msg.sender] >= _amount,
             "Gas Contract Transfer: Insufficient Balance"
         );
         require(
             bytes(_name).length < 9,
             "Gas Contract Transfer: Name is too long"
         );
-        balances[senderOfTx] -= _amount;
+        balances[msg.sender] -= _amount;
         balances[_recipient] += _amount;
         emit Transfer(_recipient, _amount);
-        Payment memory payment;
-        payment.admin = address(0);
-        payment.adminUpdated = false;
-        payment.paymentType = PaymentType.BasicPayment;
-        payment.recipient = _recipient;
-        payment.amount = _amount;
-        payment.recipientName = _name;
-        payment.paymentID = ++paymentCounter;
-        payments[senderOfTx].push(payment);
+        Payment memory payment = Payment(
+            PaymentType.BasicPayment,
+            ++paymentCounter,
+            false,
+            _name,
+            _recipient,
+            address(0),
+            _amount
+        );
+        payments[msg.sender].push(payment);
 
         return true;
-    }
-
-    function updatePayment(
-        address _user,
-        uint256 _ID,
-        uint256 _amount,
-        PaymentType _type
-    ) public onlyAdminOrOwner {
-        require(_ID > 0, "Gas Contract UpdatePayment: - Negative ID");
-        require(_amount > 0, "Gas Contract UpdatePayment: Amount is negative");
-        require(
-            _user != address(0),
-            "Gas Contract UpdatePayment: Admin has zero address"
-        );
-
-        address senderOfTx = msg.sender;
-
-        for (uint256 i = 0; i < payments[_user].length; i++) {
-            if (payments[_user][i].paymentID == _ID) {
-                payments[_user][i].adminUpdated = true;
-                payments[_user][i].admin = _user;
-                payments[_user][i].paymentType = _type;
-                payments[_user][i].amount = _amount;
-                bool tradingMode = getTradingMode();
-                addHistory(_user, tradingMode);
-                emit PaymentUpdated(
-                    senderOfTx,
-                    _ID,
-                    _amount,
-                    payments[_user][i].recipientName
-                );
-                break;
-            }
-        }
     }
 
     function addToWhitelist(
@@ -241,9 +160,6 @@ contract GasContract is Constants {
         } else {
             whitelist[_userAddrs] = _tier;
         }
-
-        wasLastOdd = 1 - wasLastOdd;
-        isOddWhitelistUser[_userAddrs] = wasLastOdd;
         emit AddedToWhitelist(_userAddrs, _tier);
     }
 
@@ -251,25 +167,24 @@ contract GasContract is Constants {
         address _recipient,
         uint256 _amount
     ) public checkIfWhiteListed(msg.sender) {
-        address senderOfTx = msg.sender;
-        whiteListStruct[senderOfTx] = ImportantStruct(
+        whiteListStruct[msg.sender] = ImportantStruct(
             _amount,
             0,
             0,
             0,
             true,
-            senderOfTx
+            msg.sender
         );
 
         require(
-            balances[senderOfTx] >= _amount && _amount > 3,
+            balances[msg.sender] >= _amount && _amount > 3,
             "Gas Contract whiteTransfers: Insufficient Balance"
         );
 
-        balances[senderOfTx] -= _amount;
+        balances[msg.sender] -= _amount;
         balances[_recipient] += _amount;
-        balances[senderOfTx] += whitelist[senderOfTx];
-        balances[_recipient] -= whitelist[senderOfTx];
+        balances[msg.sender] += whitelist[msg.sender];
+        balances[_recipient] -= whitelist[msg.sender];
 
         emit WhiteListTransfer(_recipient);
     }
