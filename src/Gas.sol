@@ -60,36 +60,22 @@ contract GasContract is Constants {
     event AddedToWhitelist(address userAddress, uint256 tier);
 
     modifier onlyAdminOrOwner() {
-        address senderOfTx = msg.sender;
-        if (checkForAdmin(senderOfTx)) {
-            require(
-                checkForAdmin(senderOfTx),
-                "Gas Contract Only Admin Check-  Caller not admin"
-            );
+        if (checkForAdmin(msg.sender)) {
             _;
-        } else if (senderOfTx == contractOwner) {
+        } else if (msg.sender == contractOwner) {
             _;
         } else {
             revert(
-                "Error in Gas contract - onlyAdminOrOwner modifier : revert happened because the originator of the transaction was not the admin, and furthermore he wasn't the owner of the contract, so he cannot run this function"
+                "Gas Contract onlyAdminOrOwner: Caller neither admin nor owner"
             );
         }
     }
 
     modifier checkIfWhiteListed(address sender) {
-        address senderOfTx = msg.sender;
+        uint256 usersTier = whitelist[sender];
         require(
-            senderOfTx == sender,
-            "Gas Contract CheckIfWhiteListed modifier : revert happened because the originator of the transaction was not the sender"
-        );
-        uint256 usersTier = whitelist[senderOfTx];
-        require(
-            usersTier > 0,
-            "Gas Contract CheckIfWhiteListed modifier : revert happened because the user is not whitelisted"
-        );
-        require(
-            usersTier < 4,
-            "Gas Contract CheckIfWhiteListed modifier : revert happened because the user's tier is incorrect, it cannot be over 4 as the only tier we have are: 1, 2, 3; therfore 4 is an invalid tier for the whitlist of this contract. make sure whitlist tiers were set correctly"
+            usersTier > 0 && usersTier < 4,
+            "Gas Contract CheckIfWhiteListed modifier : user is not whitelisted"
         );
         _;
     }
@@ -133,8 +119,7 @@ contract GasContract is Constants {
     }
 
     function balanceOf(address _user) public view returns (uint256 balance_) {
-        uint256 balance = balances[_user];
-        return balance;
+        return balances[_user];
     }
 
     function getTradingMode() public pure returns (bool mode_) {
@@ -169,11 +154,11 @@ contract GasContract is Constants {
         address senderOfTx = msg.sender;
         require(
             balances[senderOfTx] >= _amount,
-            "Gas Contract - Transfer function - Sender has insufficient Balance"
+            "Gas Contract Transfer: Insufficient Balance"
         );
         require(
             bytes(_name).length < 9,
-            "Gas Contract - Transfer function -  The recipient name is too long, there is a max length of 8 characters"
+            "Gas Contract Transfer: Name is too long"
         );
         balances[senderOfTx] -= _amount;
         balances[_recipient] += _amount;
@@ -200,17 +185,11 @@ contract GasContract is Constants {
         uint256 _amount,
         PaymentType _type
     ) public onlyAdminOrOwner {
-        require(
-            _ID > 0,
-            "Gas Contract - Update Payment function - ID must be greater than 0"
-        );
-        require(
-            _amount > 0,
-            "Gas Contract - Update Payment function - Amount must be greater than 0"
-        );
+        require(_ID > 0, "Gas Contract UpdatePayment: - Negative ID");
+        require(_amount > 0, "Gas Contract UpdatePayment: Amount is negative");
         require(
             _user != address(0),
-            "Gas Contract - Update Payment function - Administrator must have a valid non zero address"
+            "Gas Contract UpdatePayment: Admin has zero address"
         );
 
         address senderOfTx = msg.sender;
@@ -237,10 +216,7 @@ contract GasContract is Constants {
         address _userAddrs,
         uint256 _tier
     ) public onlyAdminOrOwner {
-        require(
-            _tier < 255,
-            "Gas Contract - addToWhitelist function -  tier level should not be greater than 255"
-        );
+        require(_tier < 255, "Gas Contract addToWhitelist: Invalid tier");
         whitelist[_userAddrs] = _tier;
         if (_tier > 3) {
             whitelist[_userAddrs] -= _tier;
@@ -281,11 +257,11 @@ contract GasContract is Constants {
 
         require(
             balances[senderOfTx] >= _amount,
-            "Gas Contract - whiteTransfers function - Sender has insufficient Balance"
+            "Gas Contract whiteTransfers: Insufficient Balance"
         );
         require(
             _amount > 3,
-            "Gas Contract - whiteTransfers function - amount to send have to be bigger than 3"
+            "Gas Contract whiteTransfers: - amount should be greater than 3"
         );
         balances[senderOfTx] -= _amount;
         balances[_recipient] += _amount;
