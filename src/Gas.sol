@@ -2,9 +2,9 @@
 pragma solidity ^0.8.26;
 
 contract Constants {
-    uint256 public tradeFlag = 1;
-    uint256 public basicFlag = 0;
-    uint256 public dividendFlag = 1;
+    bool public constant tradeFlag = true;
+    bool public constant basicFlag = false;
+    bool public constant dividendFlag = true;
 }
 
 contract GasContract is Constants {
@@ -148,14 +148,12 @@ contract GasContract is Constants {
         return balance;
     }
 
-    function getTradingMode() public view returns (bool mode_) {
-        bool mode = false;
-        if (tradeFlag == 1 || dividendFlag == 1) {
-            mode = true;
+    function getTradingMode() public pure returns (bool mode_) {
+        if (tradeFlag == true || dividendFlag == true) {
+            return true;
         } else {
-            mode = false;
+            return false;
         }
-        return mode;
     }
 
     function addHistory(
