@@ -122,14 +122,6 @@ contract GasContract is Constants {
         }
     }
 
-    function getPaymentHistory()
-        public
-        payable
-        returns (History[] memory paymentHistory_)
-    {
-        return paymentHistory;
-    }
-
     function checkForAdmin(address _user) public view returns (bool admin_) {
         bool admin = false;
         for (uint256 ii = 0; ii < administrators.length; ii++) {
@@ -167,16 +159,6 @@ contract GasContract is Constants {
             status[i] = true;
         }
         return ((status[0] == true), _tradeMode);
-    }
-
-    function getPayments(
-        address _user
-    ) public view returns (Payment[] memory payments_) {
-        require(
-            _user != address(0),
-            "Gas Contract - getPayments function - User must have a valid non zero address"
-        );
-        return payments[_user];
     }
 
     function transfer(
