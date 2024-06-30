@@ -59,6 +59,8 @@ contract GasContract {
         }
     }
 
+    /// Functions
+
     function checkForAdmin(address _user) public view returns (bool admin_) {
         bool admin = false;
         for (uint256 i = 0; i < administrators.length; i++) {
@@ -71,6 +73,15 @@ contract GasContract {
 
     function balanceOf(address _user) public view returns (uint256 balance_) {
         return balances[_user];
+    }
+
+    function getPaymentStatus(
+        address sender
+    ) external view returns (bool, uint256) {
+        return (
+            whiteListStruct[sender].paymentStatus,
+            whiteListStruct[sender].amount
+        );
     }
 
     function transfer(
@@ -125,14 +136,5 @@ contract GasContract {
         balances[_recipient] -= usersTier;
 
         emit WhiteListTransfer(_recipient);
-    }
-
-    function getPaymentStatus(
-        address sender
-    ) external view returns (bool, uint256) {
-        return (
-            whiteListStruct[sender].paymentStatus,
-            whiteListStruct[sender].amount
-        );
     }
 }
