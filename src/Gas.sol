@@ -4,7 +4,7 @@ pragma solidity ^0.8.26;
 contract GasContract {
     /// Type Declarations
 
-    struct ImportantStruct {
+    struct PaymentStatus {
         uint256 amount;
         bool paymentStatus;
     }
@@ -12,10 +12,10 @@ contract GasContract {
     /// State variables
 
     mapping(address => uint256) public balances;
-    address private contractOwner;
+    address private immutable contractOwner;
     mapping(address => uint256) public whitelist;
     address[5] public administrators;
-    mapping(address => ImportantStruct) public whiteListStruct;
+    mapping(address => PaymentStatus) private paymentStatus;
 
     /// Events
 
@@ -23,6 +23,9 @@ contract GasContract {
     event WhiteListTransfer(address indexed);
 
     /// Errors
+    error InvalidTier();
+    error UnAuthorized();
+    error UserNotWhitelisted();
 
     /// Modfiers
 
@@ -30,13 +33,11 @@ contract GasContract {
 
     constructor(address[] memory _admins, uint256 _totalSupply) {
         contractOwner = msg.sender;
+        balances[contractOwner] = _totalSupply;
 
         for (uint256 i = 0; i < administrators.length; i++) {
             if (_admins[i] != address(0)) {
                 administrators[i] = _admins[i];
-                if (_admins[i] == contractOwner) {
-                    balances[contractOwner] = _totalSupply;
-                }
             }
         }
     }
@@ -53,7 +54,7 @@ contract GasContract {
         return admin;
     }
 
-    function balanceOf(address _user) public view returns (uint256 balance_) {
+    function balanceOf(address _user) external view returns (uint256 balance_) {
         return balances[_user];
     }
 
@@ -61,8 +62,8 @@ contract GasContract {
         address sender
     ) external view returns (bool, uint256) {
         return (
-            whiteListStruct[sender].paymentStatus,
-            whiteListStruct[sender].amount
+            paymentStatus[sender].paymentStatus,
+            paymentStatus[sender].amount
         );
     }
 
@@ -81,27 +82,22 @@ contract GasContract {
 
     function addToWhitelist(address _userAddrs, uint256 _tier) external {
         if (checkForAdmin(msg.sender) || msg.sender == contractOwner) {
-            require(_tier < 255, "Gas Contract addToWhitelist: Invalid tier");
-            if (_tier >= 3) {
-                whitelist[_userAddrs] = 3;
-            } else {
-                whitelist[_userAddrs] = _tier;
+            if (_tier >= 255) {
+                revert InvalidTier();
             }
+            whitelist[_userAddrs] = (_tier >= 3) ? 3 : _tier;
             emit AddedToWhitelist(_userAddrs, _tier);
         } else {
-            revert(
-                "Gas Contract onlyAdminOrOwner: Caller neither admin nor owner"
-            );
+            revert UnAuthorized();
         }
     }
 
     function whiteTransfer(address _recipient, uint256 _amount) external {
         uint256 usersTier = whitelist[msg.sender];
-        require(
-            usersTier > 0 && usersTier < 4,
-            "Gas Contract WhiteTransfer : user is not whitelisted"
-        );
-        whiteListStruct[msg.sender] = ImportantStruct(_amount, true);
+        if (usersTier <= 0 || usersTier >= 4) {
+            revert UserNotWhitelisted();
+        }
+        paymentStatus[msg.sender] = PaymentStatus(_amount, true);
 
         require(
             balances[msg.sender] >= _amount && _amount > 3,
